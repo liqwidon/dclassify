@@ -1,0 +1,49 @@
+{
+  "site": {
+    "title": "Product Wiki",
+    "version": "4.2.0",
+    "logo": ""
+  },
+  "sections": [
+    {
+      "id": "home",
+      "type": "home",
+      "icon": "home",
+      "title": "Главная",
+      "content": {
+        "heading": "База знаний по продукту",
+        "description": "Инструкции, обучающие видео и документы для работы с продуктом. Используйте поиск или выберите раздел слева."
+      }
+    },
+    {
+      "id": "changelog",
+      "type": "changelog",
+      "icon": "history",
+      "title": "История изменений",
+      "content": { "file": "changelog.html" }
+    },
+    {
+      "id": "docs",
+      "type": "media-list",
+      "icon": "pdf",
+      "title": "Документы",
+      "groupOrder": ["Обновления"],
+      "items": [
+        { "id": "reg", "type": "pdf", "group": "Обновления", "title": "Регламент работы оператора", "description": "Порядок действий при обработке входящей заявки.", "file": "assets/sample.pdf" },
+        { "id": "spec", "type": "pdf", "group": "Обновления", "title": "Техническая спецификация модуля отчётности", "file": "assets/sample.pdf" },
+        { "id": "faq", "type": "link", "group": "Справка", "title": "Частые вопросы", "description": "Короткие ответы на вопросы, которые приходят в поддержку чаще всего.\n\nЕсли ответа здесь нет — напишите в чат сопровождения, ответим в течение рабочего дня.", "url": "https://example.com/faq", "linkLabel": "Открыть FAQ" },
+        { "id": "portal", "type": "link", "group": "Справка", "title": "Портал заявок", "description": "Единая точка приёма обращений.", "links": [ { "label": "Создать заявку", "url": "https://example.com/new" }, { "label": "Мои заявки", "url": "https://example.com/mine" } ] }
+      ]
+    },
+    {
+      "id": "video",
+      "type": "media-list",
+      "icon": "video",
+      "title": "Обучающие видео",
+      "items": [
+        { "id": "start", "type": "video", "title": "Первый запуск: настройка рабочего места", "description": "Разбираем установку, вход и базовую настройку интерфейса.", "files": { "low": "assets/sample.mp4", "mid": "assets/sample.mp4", "high": "assets/sample.mp4" }, "timecodes": [ { "time": 0, "label": "Введение" }, { "time": 12, "label": "Установка клиента" }, { "time": 45, "label": "Вход и права доступа" }, { "time": 92, "label": "Настройка панелей" }, { "time": 150, "label": "Итоги" } ] },
+        { "id": "report", "type": "video", "title": "Построение отчёта за период", "files": { "mid": "assets/sample.mp4", "high": "assets/sample.mp4" }, "timecodes": [ { "time": 0, "label": "Постановка задачи" }, { "time": 30, "label": "Выбор фильтров" }, { "time": 75, "label": "Выгрузка в Excel" } ] }
+      ]
+    }
+  ]
+}

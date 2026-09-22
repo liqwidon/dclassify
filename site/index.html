@@ -2,9 +2,20 @@
 <html lang="ru" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ffffff">
   <title>ВИКИ</title>
-  <link rel="stylesheet" href="css/style.v3.css">
+  <!-- Тема ставится до первой отрисовки, иначе на тёмной теме мигает белым. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("pw-theme");
+        if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.v4.css">
 </head>
 <body>
   <div id="app">
@@ -21,23 +32,25 @@
           <span class="s-icon">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
           </span>
-          <input id="search-input" type="text" placeholder="Поиск… (Ctrl+K)" autocomplete="off">
-          <span id="search-clear" class="search-clear-btn" style="display:none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          <input id="search-input" type="text" placeholder="Поиск… (Ctrl+K)" aria-label="Поиск по материалам" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search">
+          <button id="search-clear" type="button" class="search-clear-btn" aria-label="Очистить поиск" style="display:none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
       </div>
-      <nav class="sidebar-nav"></nav>
+      <nav id="sidebar-nav" class="sidebar-nav" aria-label="Разделы"></nav>
       <div class="sidebar-footer">
         <span class="ver"></span>
-        <button class="theme-btn" title="Сменить тему"></button>
+        <button class="theme-btn" type="button" title="Сменить тему" aria-label="Сменить тему"></button>
       </div>
     </aside>
     <div class="main">
       <header class="topbar">
+        <button class="menu-btn" type="button" aria-label="Разделы" aria-expanded="false" aria-controls="sidebar-nav"></button>
         <span class="topbar-title"></span>
       </header>
       <div class="content-area"></div>
     </div>
   </div>
-  <script src="js/app.v4.js"></script>
+  <div class="scrim"></div>
+  <script src="js/app.v5.js"></script>
 </body>
 </html>

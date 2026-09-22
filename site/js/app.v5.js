@@ -1,4 +1,4 @@
-/* ===== Product Wiki — App v4 ===== */
+/* ===== Product Wiki — App v5 ===== */
 (function () {
   "use strict";
 
@@ -7,6 +7,7 @@
   var searchIndex = -1;
   var searchResults = [];
   var debounceTimer = null;
+  var themeAnimTimer = null;
   var scrollPositions = {};    // remember scroll per section
 
   /* ---- icons ---- */
@@ -24,11 +25,38 @@
     close:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
     link:    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.07 0l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.07 0l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>',
     external:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>',
+    menu:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   };
 
   var $ = function (s, p) { return (p || document).querySelector(s); };
   var $$ = function (s, p) { return (p || document).querySelectorAll(s); };
   var el = function (tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
+
+  /* Кликабельный <div> недоступен с клавиатуры: ни фокуса, ни Enter.
+     Через эту обёртку любой такой элемент ведёт себя как кнопка. */
+  function clickable(node, handler) {
+    node.setAttribute("role", "button");
+    node.setAttribute("tabindex", "0");
+    node.addEventListener("click", handler);
+    node.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        handler(e);
+      }
+    });
+    return node;
+  }
+
+  /* localStorage может быть недоступен (приватный режим, киоск, политики). */
+  function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function storeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  /* Перезапуск входной анимации содержимого при смене раздела. */
+  function playEnter(area) {
+    area.classList.remove("is-entering");
+    void area.offsetWidth;
+    area.classList.add("is-entering");
+  }
 
   /* =============== BOOT =============== */
   async function boot() {
@@ -40,6 +68,7 @@
       return;
     }
     initTheme();
+    initNav();
     buildSidebar();
     initSearch();
     initKeyboard();
@@ -49,17 +78,46 @@
 
   /* =============== THEME =============== */
   function initTheme() {
-    var saved = localStorage.getItem("pw-theme");
-    applyTheme(saved || "light");
+    // Тему уже выставил инлайновый скрипт в <head> — здесь только подхватываем.
+    applyTheme(document.documentElement.getAttribute("data-theme") || "light");
     $(".theme-btn").addEventListener("click", function () {
-      var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      var root = document.documentElement;
+      var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      // Переключение темы — редкое действие, его переход можно показать.
+      // Класс живёт только на время перехода, чтобы не держать transition постоянно.
+      root.classList.add("theme-anim");
+      clearTimeout(themeAnimTimer);
+      themeAnimTimer = setTimeout(function () { root.classList.remove("theme-anim"); }, 260);
       applyTheme(next);
-      localStorage.setItem("pw-theme", next);
+      storeSet("pw-theme", next);
     });
   }
   function applyTheme(t) {
+    var dark = t === "dark";
     document.documentElement.setAttribute("data-theme", t);
-    $(".theme-btn").innerHTML = t === "dark" ? ICONS.sun : ICONS.moon;
+    var btn = $(".theme-btn");
+    btn.innerHTML = dark ? ICONS.sun : ICONS.moon;
+    btn.setAttribute("aria-label", dark ? "Включить светлую тему" : "Включить тёмную тему");
+    btn.setAttribute("aria-pressed", dark ? "true" : "false");
+    var meta = $('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", dark ? "#181a22" : "#ffffff");
+  }
+
+  /* =============== NAV (узкие экраны) =============== */
+  function initNav() {
+    var btn = $(".menu-btn");
+    btn.innerHTML = ICONS.menu;
+    btn.addEventListener("click", function () {
+      setNav(!document.body.classList.contains("nav-open"));
+    });
+    $(".scrim").addEventListener("click", function () { setNav(false); });
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 900) setNav(false);
+    });
+  }
+  function setNav(open) {
+    document.body.classList.toggle("nav-open", open);
+    $(".menu-btn").setAttribute("aria-expanded", open ? "true" : "false");
   }
 
   /* =============== SIDEBAR =============== */
@@ -81,8 +139,9 @@
       item.dataset.id = sec.id;
       item.innerHTML = '<span class="icon">' + (ICONS[sec.icon] || ICONS.folder) +
         '</span><span class="nav-label">' + sec.title + '</span>';
-      item.addEventListener("click", function () {
+      clickable(item, function () {
         clearSearch();
+        setNav(false);
         location.hash = "#/" + sec.id;
       });
       nav.appendChild(item);
@@ -101,7 +160,7 @@
         searchIndex = -1;
         updateClearBtn();
         renderSearch();
-      }, 120);
+      }, 50);
     });
 
     input.addEventListener("keydown", function (e) {
@@ -140,6 +199,7 @@
     if (searchQuery) {
       // Always show search overlay regardless of current page
       var area = $(".content-area");
+      area.classList.remove("is-entering");
       area.innerHTML = "";
       area.scrollTop = 0;
       $(".topbar-title").textContent = "";
@@ -160,6 +220,7 @@
   }
 
   function clearSearch() {
+    clearTimeout(debounceTimer);
     searchQuery = "";
     searchIndex = -1;
     searchResults = [];
@@ -174,9 +235,24 @@
 
   function initKeyboard() {
     document.addEventListener("keydown", function (e) {
-      if ((e.ctrlKey && e.key === "k") || (e.key === "/" && e.target.tagName !== "INPUT")) {
+      var t = e.target || {};
+      var typing = t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable;
+
+      // e.code вместо e.key: на русской раскладке Ctrl+K приходит как «л».
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyK") {
         e.preventDefault();
         $("#search-input").focus();
+        $("#search-input").select();
+        return;
+      }
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        $("#search-input").focus();
+        return;
+      }
+      if (e.key === "Escape") {
+        if (document.body.classList.contains("nav-open")) { setNav(false); return; }
+        if (searchQuery) { clearSearch(); onHash(); }
       }
     });
   }
@@ -221,6 +297,7 @@
           { label: item.title }
         ]);
         renderSubview(area, sec, item);
+        playEnter(area);
         return;
       }
     }
@@ -234,6 +311,8 @@
       case "media-list": renderMediaList(area, sec); break;
     }
 
+    playEnter(area);
+
     // restore scroll
     var saved = scrollPositions[hash];
     if (saved) setTimeout(function () { area.scrollTop = saved; }, 0);
@@ -246,7 +325,7 @@
       if (i > 0) bc.appendChild(el("span", "bc-sep", ICONS.chevron));
       var span = el("span", "bc-item" + (p.hash ? " bc-link" : " bc-current"), esc(p.label));
       if (p.hash) {
-        span.addEventListener("click", function () {
+        clickable(span, function () {
           clearSearch();
           location.hash = p.hash;
         });
@@ -268,7 +347,7 @@
         var card = el("div", "home-card");
         card.innerHTML = '<div class="hc-icon">' + (ICONS[ms.icon] || ICONS.folder) + '</div>' +
           '<div class="hc-title">' + esc(ms.title) + '</div>';
-        card.addEventListener("click", function () { location.hash = "#/" + ms.id; });
+        clickable(card, function () { location.hash = "#/" + ms.id; });
         grid.appendChild(card);
       });
       d.appendChild(grid);
@@ -307,14 +386,73 @@
     groups.forEach(function (g, idx) {
       var details = document.createElement("details");
       details.className = "cl-version";
-      if (idx === 0) details.open = false;  // первая версия раскрыта
 
       var summary = document.createElement("summary");
       summary.innerHTML = g.heading.innerHTML;
       details.appendChild(summary);
 
-      g.body.forEach(function (b) { details.appendChild(b); });
+      // Разделитель в конце версии отделял её от следующей, но внутри карточки
+      // превращается в пустую полосу — убираем такие хвосты.
+      while (g.body.length && g.body[g.body.length - 1].tagName === "HR") g.body.pop();
+
+      // Обёртка нужна, чтобы анимировать высоту через grid-template-rows 0fr → 1fr.
+      var body = el("div", "cl-body");
+      var inner = el("div", "cl-body-inner");
+      g.body.forEach(function (b) { inner.appendChild(b); });
+      body.appendChild(inner);
+      details.appendChild(body);
+
+      if (idx === 0) {                      // первая версия раскрыта
+        details.open = true;
+        details.classList.add("is-open");
+      }
+
+      bindVersionToggle(details, body);
       g.heading.replaceWith(details);
+    });
+  }
+
+  /* Аккордеон версии. <details> сам по себе открывается рывком, поэтому
+     атрибут open ставим сразу, а высоту доводим классом is-open.
+     Если браузер не умеет анимировать grid-template-rows, transitionend
+     не придёт — тогда состояние дочищает таймер, визуально это незаметно. */
+  function bindVersionToggle(details, body) {
+    var summary = $("summary", details);
+    var busy = false;
+
+    function settle(done) {
+      var fired = false;
+      function finish() {
+        if (fired) return;
+        fired = true;
+        body.removeEventListener("transitionend", onEnd);
+        clearTimeout(timer);
+        done();
+      }
+      function onEnd(e) {
+        if (e.target === body && e.propertyName === "grid-template-rows") finish();
+      }
+      body.addEventListener("transitionend", onEnd);
+      var timer = setTimeout(finish, 300);
+    }
+
+    summary.addEventListener("click", function (e) {
+      e.preventDefault();
+      if (busy) return;
+      busy = true;
+
+      if (details.classList.contains("is-open")) {
+        details.classList.remove("is-open");
+        settle(function () { details.open = false; busy = false; });
+      } else {
+        details.open = true;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            details.classList.add("is-open");
+            settle(function () { busy = false; });
+          });
+        });
+      }
     });
   }
 
@@ -420,7 +558,7 @@
       '<span class="type-tag ' + iconCls + '">' + typeLabel + '</span>' +
       (isSearch ? '<span class="search-section-hint">' + esc(sec.title) + '</span>' : '') +
       '</div>';
-    row.addEventListener("click", function () {
+    clickable(row, function () {
       clearSearch();
       location.hash = "#/" + sec.id + "/" + item.id;
     });
@@ -484,11 +622,15 @@
         area.appendChild(desc);
       }
 
-      var wrap = el("div", "video-section");
+      var vwrap = el("div", "video-section");
       var vid = document.createElement("video");
       vid.controls = true;
+      vid.preload = "metadata";
+      // Без playsinline мобильный Safari забирает видео в полный экран.
+      vid.setAttribute("playsinline", "");
+      vid.setAttribute("webkit-playsinline", "");
       vid.src = item.files.mid;
-      wrap.appendChild(vid);
+      vwrap.appendChild(vid);
 
       // download buttons
       var ctrls = el("div", "video-controls");
@@ -517,14 +659,16 @@
           row.innerHTML =
             '<span class="tc-time">' + formatTime(tc.time) + '</span>' +
             '<span class="tc-label">' + esc(tc.label) + '</span>';
-          row.addEventListener("click", function () {
+          clickable(row, function () {
             vid.currentTime = tc.time;
-            vid.play();
+            // play() возвращает promise и может быть отклонён политикой автозапуска.
+            var pr = vid.play();
+            if (pr && pr.catch) pr.catch(function () {});
           });
           tcList.appendChild(row);
         });
         tcSection.appendChild(tcList);
-        wrap.appendChild(tcSection);
+        vwrap.appendChild(tcSection);
 
         // highlight current timecode during playback
         vid.addEventListener("timeupdate", function () {
@@ -539,8 +683,8 @@
         });
       }
 
-      wrap.appendChild(ctrls);
-      area.appendChild(wrap);
+      vwrap.appendChild(ctrls);
+      area.appendChild(vwrap);
     }
   }
 
